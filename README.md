@@ -9,3 +9,5 @@ This repo is used to learn and practice Kotlin with Kafka.
 
 01 — logging-producer
 02 — partition-key-group
+03 - replication-failover
+
