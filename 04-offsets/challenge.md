@@ -95,7 +95,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 #### Command to verify/run
 
 ```bash
-./gradlew test --tests ManualCommitTest
+./gradlew :04-offsets:test --tests ManualCommitTest
 ```
 
 ---

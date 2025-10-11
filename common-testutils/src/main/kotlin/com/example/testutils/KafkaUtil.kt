@@ -2,6 +2,7 @@ package com.example.testutils
 
 import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.utility.DockerImageName
+import org.testcontainers.DockerClientFactory
 import java.time.Duration
 import java.util.Properties
 import org.apache.kafka.clients.admin.AdminClient
@@ -28,6 +29,16 @@ object KafkaUtil {
                 "-server -XX:+UseG1GC -Xms256m -Xmx512m -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Xlog:gc*:stdout:time,tags"
             )
             .withStartupTimeout(Duration.ofSeconds(120))
+    }
+
+    fun pause(container: KafkaContainer){
+        val dockerClient = DockerClientFactory.instance().client()
+        dockerClient.pauseContainerCmd(container.containerId).exec()
+    }
+
+    fun unpause(container: KafkaContainer){
+        val dockerClient = DockerClientFactory.instance().client()
+        dockerClient.unpauseContainerCmd(container.containerId).exec()
     }
 
     fun createTopicWithPartition(props: Properties, topic: String, partition: Int, replication:Int = 1){        
