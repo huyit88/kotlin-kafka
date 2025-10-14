@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spin-up-docker
+
+logging:
+  level:
+    com.example: DEBUG
