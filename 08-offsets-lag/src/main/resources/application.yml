@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: offsets-lag
+
+logging:
+  level:
+    com.example: DEBUG
