@@ -113,10 +113,18 @@ cat > "$CHALLENGE_DIR/build.gradle.kts" << 'EOF'
 // Add any module-specific dependencies or configurations here if needed
 
 dependencies {
-    // Add challenge-specific dependencies here
-    // Example:
-    // implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    // implementation("org.postgresql:postgresql")
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kafka.clients)
+    testImplementation(project(":common-testutils"))
+    testImplementation(libs.kotlin.test)
+}
+
+tasks.withType<Test>().configureEach {
+  testLogging {
+    showStandardStreams = true
+    events("passed", "skipped", "failed", "standardOut", "standardError")
+  }
+  outputs.upToDateWhen { false }
 }
 EOF
 
