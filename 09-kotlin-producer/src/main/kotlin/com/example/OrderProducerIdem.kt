@@ -17,20 +17,16 @@ fun main(){
     val topic = "orders"
     val props = Properties().apply{
         put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
-        // Idempotence & durability
         put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
         put(ProducerConfig.ACKS_CONFIG, "all")
         put(ProducerConfig.RETRIES_CONFIG, Int.MAX_VALUE.toString())
         put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5")
 
-        // Serdes
         put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
         put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
 
-        // Reasonable delivery timeout cap
         put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "120000")
 
-        // (optional) modest batching
         put(ProducerConfig.LINGER_MS_CONFIG, "10")
         put(ProducerConfig.BATCH_SIZE_CONFIG, (64 * 1024).toString())
         put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4")
