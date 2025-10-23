@@ -180,7 +180,6 @@ import java.util.concurrent.atomic.AtomicInteger
 #### Command to verify/run
 
 ```bash
-./gradlew -q run --args="AsyncOrderProducerLatency"
 ./gradlew :10-async-producer-callback:run -q -PmainClass=com.example.AsyncOrderProducerLatencyKt
 
 ```
