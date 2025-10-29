@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+logging:
+  level:
+    com.example: DEBUG
+
+spring:
+  application:
+    name: spring-kafka-producer
+  kafka:
+    bootstrap-servers: localhost:19092
+    producer:
+      transaction-id-prefix: inv-tx-
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        linger.ms: 20
+        batch.size: 65536
+        compression.type: lz4
