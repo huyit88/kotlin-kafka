@@ -1,0 +1,25 @@
+server:
+  port: 8081
+
+logging:
+  level:
+    com.example: DEBUG
+
+spring:
+  application:
+    name: spring-kafka-producer
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: inventory-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      max-poll-records: 100
+      properties:
+        fetch.min.bytes: 32768        # wait until at least 32KB available
+        fetch.max.wait.ms: 100        # but don't wait more than 100ms
+        max.partition.fetch.bytes: 1048576  # 1MB per partition fetch
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
