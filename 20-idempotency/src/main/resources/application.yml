@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: idempotency
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: inventory-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        linger.ms: 20
+        batch.size: 65536
+        compression.type: lz4
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+logging:
+  level:
+    com.example: DEBUG
+
+# Idempotency cleanup configuration
+idempotency:
+  cleanup:
+    ttl-minutes: 0.5  # Time-to-live for processed payments (can be set to 0.5 for 30 seconds testing)
+    interval-ms: 60000  # Cleanup interval in milliseconds (default: 1 minute)
