@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: partitioning-keys
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: notif-service
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+kafka:
+  topic:
+    # Can be overridden via environment variable: KAFKA_TOPIC_NOTIFICATIONS
+    # Example: KAFKA_TOPIC_NOTIFICATIONS=notifications-single INSTANCE_ID=A SERVER_PORT=8080 ./gradlew bootRun
+    notifications: notifications
+    partitions: 3
+
+logging:
+  level:
+    com.example: DEBUG
