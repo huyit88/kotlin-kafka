@@ -20,7 +20,8 @@ import java.util.*
 @Configuration
 class KafkaConfig {
     @Bean
-    fun producerFactory(@Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String): ProducerFactory<String, String> {
+    fun producerFactory(
+        @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String): ProducerFactory<String, String> {
         val props: MutableMap<String, Any> = HashMap()
         props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServers
         props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
