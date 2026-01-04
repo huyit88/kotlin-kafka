@@ -12,7 +12,12 @@ plugins {
 allprojects {
   group = "com.example"
   version = "0.0.1-SNAPSHOT"
-  repositories { mavenCentral() }
+  repositories { 
+    mavenCentral()
+    maven {
+      url = uri("https://packages.confluent.io/maven/")
+    }
+  }
 }
 
 subprojects {
