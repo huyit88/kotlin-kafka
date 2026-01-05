@@ -1,0 +1,171 @@
+package com.example
+
+import io.confluent.kafka.serializers.KafkaAvroDeserializer
+import io.confluent.kafka.serializers.KafkaAvroSerializer
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.StringSerializer
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory
+import org.springframework.kafka.core.ConsumerFactory
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory
+import org.springframework.kafka.core.DefaultKafkaProducerFactory
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.core.ProducerFactory
+
+/**
+ * Example: Multi-Schema Kafka Configuration
+ * 
+ * This shows how to configure multiple Avro schemas in production.
+ * 
+ * Key patterns:
+ * 1. Shared base configuration (DRY principle)
+ * 2. Named factories for each schema type
+ * 3. Type-safe templates and consumers
+ * 4. Production-ready settings
+ */
+@Configuration
+class KafkaConfigMultiSchema {
+
+    // ============================================
+    // Shared Base Configuration
+    // ============================================
+    
+    /**
+     * Base producer properties - shared across all Avro producers
+     */
+    private fun baseAvroProducerProps(
+        bootstrapServers: String,
+        schemaRegistryUrl: String
+    ): Map<String, Any> = mapOf(
+        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers,
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG to KafkaAvroSerializer::class.java,
+        "schema.registry.url" to schemaRegistryUrl,
+        
+        // Production settings
+        ProducerConfig.ACKS_CONFIG to "all",
+        ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG to true,
+        ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION to 5,
+        ProducerConfig.LINGER_MS_CONFIG to 20,
+        ProducerConfig.BATCH_SIZE_CONFIG to 65536,
+        ProducerConfig.COMPRESSION_TYPE_CONFIG to "snappy",
+        
+        // Schema Registry
+        "auto.register.schemas" to false,  // Don't auto-register in production
+        "use.latest.version" to false
+    )
+    
+    /**
+     * Base consumer properties - shared across all Avro consumers
+     */
+    private fun baseAvroConsumerProps(
+        bootstrapServers: String,
+        schemaRegistryUrl: String,
+        groupId: String
+    ): Map<String, Any> = mapOf(
+        ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers,
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG to StringDeserializer::class.java,
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG to KafkaAvroDeserializer::class.java,
+        ConsumerConfig.GROUP_ID_CONFIG to groupId,
+        ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
+        ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG to false,  // Manual commit
+        
+        // Schema Registry
+        "schema.registry.url" to schemaRegistryUrl,
+        "specific.avro.reader" to true,  // Use specific classes
+        "use.latest.version" to true,    // Use latest compatible schema
+        
+        // Performance
+        ConsumerConfig.FETCH_MIN_BYTES_CONFIG to 1,
+        ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG to 500,
+        ConsumerConfig.MAX_POLL_RECORDS_CONFIG to 500
+    )
+
+    // ============================================
+    // Transaction Schema Configuration
+    // ============================================
+    
+    @Bean
+    fun transactionProducerFactory(
+        @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String,
+        @Value("\${schema.registry.url}") schemaRegistryUrl: String
+    ): ProducerFactory<String, Transaction> {
+        return DefaultKafkaProducerFactory<String, Transaction>(
+            baseAvroProducerProps(bootstrapServers, schemaRegistryUrl)
+        )
+    }
+    
+    @Bean
+    fun transactionKafkaTemplate(
+        transactionProducerFactory: ProducerFactory<String, Transaction>
+    ): KafkaTemplate<String, Transaction> {
+        return KafkaTemplate(transactionProducerFactory)
+    }
+    
+    @Bean
+    fun transactionConsumerFactory(
+        @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String,
+        @Value("\${schema.registry.url}") schemaRegistryUrl: String
+    ): ConsumerFactory<String, Transaction> {
+        return DefaultKafkaConsumerFactory<String, Transaction>(
+            baseAvroConsumerProps(bootstrapServers, schemaRegistryUrl, "fraud-detector")
+        )
+    }
+    
+    @Bean
+    fun transactionListenerContainerFactory(
+        transactionConsumerFactory: ConsumerFactory<String, Transaction>
+    ): ConcurrentKafkaListenerContainerFactory<String, Transaction> {
+        val factory = ConcurrentKafkaListenerContainerFactory<String, Transaction>()
+        factory.consumerFactory = transactionConsumerFactory
+        factory.concurrency = 3  // 3 consumer threads
+        return factory
+    }
+
+    // ============================================
+    // Payment Schema Configuration (Example)
+    // ============================================
+    // Uncomment when Payment.avsc is added:
+    /*
+    @Bean
+    fun paymentProducerFactory(
+        @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String,
+        @Value("\${schema.registry.url}") schemaRegistryUrl: String
+    ): ProducerFactory<String, Payment> {
+        return DefaultKafkaProducerFactory<String, Payment>(
+            baseAvroProducerProps(bootstrapServers, schemaRegistryUrl)
+        )
+    }
+    
+    @Bean
+    fun paymentKafkaTemplate(
+        paymentProducerFactory: ProducerFactory<String, Payment>
+    ): KafkaTemplate<String, Payment> {
+        return KafkaTemplate(paymentProducerFactory)
+    }
+    
+    @Bean
+    fun paymentConsumerFactory(
+        @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String,
+        @Value("\${schema.registry.url}") schemaRegistryUrl: String
+    ): ConsumerFactory<String, Payment> {
+        return DefaultKafkaConsumerFactory<String, Payment>(
+            baseAvroConsumerProps(bootstrapServers, schemaRegistryUrl, "payment-processor")
+        )
+    }
+    
+    @Bean
+    fun paymentListenerContainerFactory(
+        paymentConsumerFactory: ConsumerFactory<String, Payment>
+    ): ConcurrentKafkaListenerContainerFactory<String, Payment> {
+        val factory = ConcurrentKafkaListenerContainerFactory<String, Payment>()
+        factory.consumerFactory = paymentConsumerFactory
+        return factory
+    }
+    */
+}
+
