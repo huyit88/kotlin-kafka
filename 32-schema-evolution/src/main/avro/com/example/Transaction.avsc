@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "Transaction",
+  "namespace": "com.example",
+  "doc": "Represents a financial transaction for fraud detection and processing",
+  "fields": [
+    {
+      "name": "transactionId",
+      "type": "string",
+      "doc": "Unique identifier for the transaction"
+    },
+    {
+      "name": "amount",
+      "type": "double",
+      "doc": "Transaction amount in the specified currency"
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO 4217 currency code (e.g., USD, EUR, GBP)"
+    },
+    { 
+      "name": "merchantId", 
+      "type": ["null", "string"], 
+      "default": null 
+    }
+  ]
+}
+

@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: schema-evolution
+  kafka:
+    bootstrap-servers: localhost:19092
+    # Note: Serializers/deserializers are configured programmatically in KafkaConfig
+    # These defaults are for Spring Boot auto-configuration (if not using custom factories)
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # value-deserializer is configured in KafkaConfig.kt
+      group-id: payment-group-32
+      
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # value-serializer is configured in KafkaConfig.kt
+
+schema:
+  registry:
+    url: http://localhost:8081
+
+logging:
+  level:
+    com.example: DEBUG
+    org.apache.kafka.streams: INFO
+    org.apache.kafka.streams.processor.internals: INFO
