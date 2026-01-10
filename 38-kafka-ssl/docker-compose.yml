@@ -1,0 +1,53 @@
+services:
+  zookeeper-38:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper-38
+    user: "0:0"
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_DATA_DIR: /var/lib/zookeeper/data
+      ZOOKEEPER_DATA_LOG_DIR: /var/lib/zookeeper/log
+    volumes:
+      - zk_data:/var/lib/zookeeper/data
+      - zk_log:/var/lib/zookeeper/log
+
+  kafka-38:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper-38]
+    container_name: kafka-38
+    ports:
+      # - "9092:9092"
+      - "9093:9093"
+    user: "0:0"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-38:2181
+      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,SSL://0.0.0.0:9093
+      KAFKA_LISTENERS: SSL://0.0.0.0:9093
+      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,SSL://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: SSL://localhost:9093
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: key_creds
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: truststore_creds
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: password
+      KAFKA_SSL_CLIENT_AUTH: none
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      KAFKA_INTER_BROKER_LISTENER_NAME: SSL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data  
+      - ./ssl:/etc/kafka/secrets
+      - ./client-ssl.properties:/etc/kafka/client-ssl.properties
+
+volumes:
+  zk_data:
+  zk_log:
+  kafka_data:

@@ -208,7 +208,7 @@ Steps:
 FAIL_AFTER_PRODUCE=true ./gradlew :34-atomic-pipeline:bootRun
 
 # Consume output again
-docker exec -it kafka bash lc '
+docker exec -it kafka bash -lc '
 kafka-console-consumer --bootstrap-server localhost:9092 \
   --topic payments-validated --from-beginning
   '
