@@ -11,7 +11,11 @@ Kafka exposes metrics through JMX, which is Java-specific and not natively compa
 
 ### 3. What metric you alert on first in Kafka
 
-**`kafka_server_ReplicaManager_UnderReplicatedPartitions`** - this is the first alert because it indicates cluster health degradation. Value of 0 means all partitions are fully replicated (healthy). Any value > 0 indicates broker failures, network issues, or disk problems, which risks data loss if leaders fail. This metric is critical because it directly reflects fault tolerance - the core value proposition of Kafka's replication.
+**`kafka_server_ReplicaManager_UnderReplicatedPartitions`** 
+- this is the first alert because it indicates cluster health degradation. 
+Value of 0 means all partitions are fully replicated (healthy). 
+Any value > 0 indicates broker failures, network issues, or disk problems, which risks data loss if leaders fail.
+ This metric is critical because it directly reflects fault tolerance - the core value proposition of Kafka's replication.
 
 ### 4. One risk of misconfigured exporters
 
