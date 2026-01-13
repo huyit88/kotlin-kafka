@@ -1,0 +1,54 @@
+services:
+  zookeeper-43:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper-43
+    user: "0:0"
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_DATA_DIR: /var/lib/zookeeper/data
+      ZOOKEEPER_DATA_LOG_DIR: /var/lib/zookeeper/log
+    volumes:
+      - zk_data:/var/lib/zookeeper/data
+      - zk_log:/var/lib/zookeeper/log
+
+  kafka-43:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper-43]
+    container_name: kafka-43
+    ports:
+      - "19092:19092"
+      - "9999:9999"
+    user: "0:0"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-43:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-43:9092,PLAINTEXT_HOST://localhost:19092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:19092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-43
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-jmx-exporter:
+    image: bitnami/jmx-exporter:latest
+    depends_on: [kafka-43]
+    ports:
+      - "9404:9404"
+    volumes:
+      - ./jmx-kafka.yml:/etc/jmx-exporter/config.yml
+    command:
+      - "9404"
+      - "/etc/jmx-exporter/config.yml"
+
+volumes:
+  zk_data:
+  zk_log:
+  kafka_data:
