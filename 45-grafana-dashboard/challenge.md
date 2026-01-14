@@ -69,8 +69,9 @@ Create a new dashboard with **at least 3 panels**:
    * Query:
 
      ```promql
-     kafka_network_RequestMetrics_RequestQueueTimeMs
+     kafka_network_RequestChannel_RequestQueueSize
      ```
+   * Note: `kafka_network_RequestMetrics_RequestQueueTimeMs` doesn't exist. Use `RequestQueueSize` to monitor queue depth, or `kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent_one_minute_rate` for handler utilization (inverse of latency).
    * Visualization: Time series
 
 ---
@@ -111,10 +112,53 @@ Dashboard panels:
    ```promql
    kafka_log_Log_LogEndOffset
    ```
-
+   
+   **Note:** After updating `jmx-kafka.yml` to extract topic/partition as labels, this query will show all LogEndOffset metrics with `topic` and `partition` labels. You can filter by topic:
+   ```promql
+   kafka_log_Log_LogEndOffset{topic="metrics-test"}
+   ```
+   
+   Or sum all partitions for a topic:
+   ```promql
+   sum by (topic) (kafka_log_Log_LogEndOffset)
+   ```
 3. **Processing Health (Lag Proxy)**
 
-   * Use offset growth slope to visually detect backlog
+   **Query:**
+   ```promql
+   kafka_log_Log_LogEndOffset
+   ```
+   
+   **Grafana Setup (Simplest - Recommended):**
+   1. **Query:** `kafka_log_Log_LogEndOffset`
+   2. **Panel Type:** Time series
+   3. **Legend:** `{{topic}}/{{partition}}`
+   4. **Visual Interpretation:** The **slope** of the line shows growth rate
+      - Steep upward = fast growth
+      - Flat = no growth
+   5. **Compare:** Place next to Input Throughput panel and compare slopes
+   
+   **Alternative (if you want numeric rate values):**
+   - Use Transform: **Add field from calculation**
+   - **First field:** `kafka_log_Log_LogEndOffset`
+   - **Operation:** `-` (subtraction)
+   - **Second field:** `kafka_log_Log_LogEndOffset` (same field)
+   - This calculates point-to-point differences
+   
+   **Or use manual query (after producing messages):**
+   ```promql
+   (kafka_log_Log_LogEndOffset - kafka_log_Log_LogEndOffset offset 1m) / 60
+   ```
+   
+   **How to detect backlog:**
+   - Compare the **rate/slope** of this panel with the **Input Throughput** panel
+   - **If LogEndOffset rate > Input Throughput** → Backlog building (consumers falling behind)
+   - **If rates match** → Healthy (consumers keeping up)
+   - **If LogEndOffset rate < Input Throughput** → Consumers catching up
+   
+   **Important:** You need to produce messages first for the offset to change. If offset stays constant, the rate will be 0.
+   
+   **Note:** `deriv()` and `rate()` don't work with this untyped metric. Use Grafana's Transform feature or interpret the visual slope.
 
 ---
 
