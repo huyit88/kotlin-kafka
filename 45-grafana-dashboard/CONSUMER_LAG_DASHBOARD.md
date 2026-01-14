@@ -1,20 +1,20 @@
 # Consumer Lag Dashboard - Grafana Visualization Guide
 
-## ⚠️ Important Note: Conceptual Dashboard
+## ⚠️ Important Note: Consumer Lag Metrics Setup
 
-**This is a conceptual dashboard.** The current JMX exporter setup only exposes **broker metrics** (kafka.server, kafka.network, kafka.log) and does **not** expose consumer lag metrics.
-
-**To get consumer lag metrics, you would need:**
-- A Kafka Exporter (like `kafka-exporter` or `burrow`) that queries consumer groups
-- Or consumer applications that expose their own lag metrics
-- Or use Kafka Admin API to calculate lag: `Lag = LogEndOffset - ConsumerOffset`
+**kafka-exporter is now configured!** Consumer lag metrics are available, but they only appear when you have **active consumer groups with lag**.
 
 **Current Available Metrics:**
-- ✅ `kafka_log_Log_LogEndOffset` - Log end offset (available)
-- ❌ `kafka_consumergroup_lag` - Consumer lag (NOT available with current setup)
-- ❌ `kafka_consumer_offset` - Consumer offset (NOT available with current setup)
+- ✅ `kafka_log_Log_LogEndOffset` - Log end offset (from JMX exporter)
+- ✅ `kafka_consumergroup_lag` - Consumer lag (from kafka-exporter, requires consumer groups)
+- ✅ `kafka_consumergroup_current_offset` - Consumer offsets (from kafka-exporter)
 
-**This document describes how consumer lag would be visualized IF consumer lag metrics were available.**
+**To see consumer lag metrics, you need to:**
+1. Create a consumer group
+2. Produce messages to a topic
+3. Create lag by consuming slowly or stopping the consumer
+
+See **"Generating Consumer Lag Data"** section below for step-by-step instructions.
 
 ---
 
@@ -35,14 +35,29 @@ sum(kafka_consumergroup_lag) by (consumergroup)
 
 **Visualization:** Stat panel showing total lag per consumer group
 
+**Grafana Configuration:**
+1. **Panel Type:** Stat
+2. **Query:** `sum(kafka_consumergroup_lag) by (consumergroup)`
+3. **Data Source:** Prometheus
+4. **Time Range:** Last 5 minutes or Last 15 minutes
+5. **Value Options:**
+   - **Value:** Last
+   - **Unit:** short (or none)
+6. **Thresholds:**
+   - Green: < 1,000 messages
+   - Yellow: 1,000 - 10,000 messages
+   - Red: > 10,000 messages
+
+**Troubleshooting "No Data":**
+- ✅ **Verify query works in Prometheus:** `http://localhost:9090/graph?g0.expr=sum(kafka_consumergroup_lag)%20by%20(consumergroup)`
+- ✅ **Check time range:** Use "Last 15 minutes" or "Last 1 hour" (not "Last 5 minutes" if metrics are older)
+- ✅ **Verify data source:** Ensure Prometheus data source is selected and connected
+- ✅ **Check legend:** If using "Value options → Show", ensure "All values" is selected
+- ✅ **Try without aggregation:** First test with `kafka_consumergroup_lag` to verify data exists
+
 **What it shows:**
 - Total unprocessed messages across all partitions for each consumer group
 - Quick overview of which consumer groups are behind
-
-**Thresholds:**
-- Green: < 1,000 messages
-- Yellow: 1,000 - 10,000 messages
-- Red: > 10,000 messages
 
 ---
 
@@ -98,6 +113,12 @@ rate(kafka_consumergroup_lag[5m])
 
 **Visualization:** Time series graph
 
+**Troubleshooting "No Data":**
+- ⚠️ **Note:** `rate()` requires at least 2 data points within the time window
+- ✅ **Use longer time range:** "Last 15 minutes" or "Last 1 hour"
+- ✅ **Alternative:** Use `deriv()` instead: `deriv(kafka_consumergroup_lag[5m])`
+- ✅ **Or use raw metric:** Just show `kafka_consumergroup_lag` and visually interpret the slope
+
 **What it shows:**
 - How fast lag is changing (messages per second)
 - Positive values = lag increasing
@@ -115,6 +136,19 @@ sum(kafka_consumergroup_lag) by (topic)
 ```
 
 **Visualization:** Bar chart or time series
+
+**Grafana Configuration:**
+1. **Panel Type:** Bar chart or Time series
+2. **Query:** 
+`sum by(topic) (kafka_consumergroup_lag)`
+`sum(kafka_consumergroup_lag) by (topic)`
+3. **Time Range:** Last 15 minutes or Last 1 hour
+4. **Legend:** `{{topic}}`
+
+**Troubleshooting "No Data":**
+- ✅ **Verify query:** `http://localhost:9090/graph?g0.expr=sum(kafka_consumergroup_lag)%20by%20(topic)`
+- ✅ **Check time range:** Ensure it covers when lag data exists
+- ✅ **Try without aggregation:** Test with `kafka_consumergroup_lag` first
 
 **What it shows:**
 - Total lag per topic
@@ -386,4 +420,234 @@ With current setup, you can monitor:
 - **Infer Lag:** If you know consumer processing rate, you can estimate lag
 
 But you **cannot directly measure consumer lag** without consumer offset data.
+
+---
+
+## Generating Consumer Lag Data
+
+### Step 1: Create a Topic (if needed)
+
+```bash
+cd 45-grafana-dashboard
+
+# Create topic with multiple partitions for better lag visualization
+docker exec -it kafka-45 bash -lc '
+  kafka-topics --bootstrap-server localhost:9092 \
+    --create --topic lag-test --partitions 3 --replication-factor 1 2>/dev/null || true
+'
+```
+
+### Step 2: Produce Messages to Create Backlog
+
+```bash
+# Produce 100 messages to create a backlog
+for i in {1..100}; do
+  echo "message-$i-$(date +%s)" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+  sleep 0.1
+done
+
+# Verify messages were produced
+docker exec -it kafka-45 bash -lc '
+  kafka-run-class kafka.tools.GetOffsetShell \
+    --broker-list localhost:9092 \
+    --topic lag-test --time -1
+'
+```
+
+### Step 3: Create Consumer Group and Consume Slowly (to create lag)
+
+**Option A: Start consumer, then stop it (creates lag):**
+
+```bash
+# Terminal 1: Start consumer (will consume some messages)
+docker exec -it kafka-45 bash -lc '
+  timeout 5 kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic lag-test \
+    --group lag-monitor-group \
+    --from-beginning || true
+'
+
+# Terminal 2: Produce more messages while consumer is stopped
+for i in {101..200}; do
+  echo "message-$i" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+done
+```
+
+**Option B: Use a slow consumer (creates lag over time):**
+
+```bash
+# Start a slow consumer (processes 1 message per second)
+docker exec -it kafka-45 bash -lc '
+  kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic lag-test \
+    --group lag-monitor-group \
+    --from-beginning &
+  CONSUMER_PID=$!
+  sleep 10
+  kill $CONSUMER_PID 2>/dev/null || true
+'
+
+# Produce messages faster than consumer can process
+for i in {201..300}; do
+  echo "message-$i" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+  sleep 0.05  # Faster than consumer
+done
+```
+
+### Step 4: Verify Consumer Lag Metrics
+
+**Check if metrics are available:**
+
+```bash
+# Check kafka-exporter metrics
+curl -s http://localhost:9308/metrics | grep kafka_consumergroup_lag
+
+# Check in Prometheus
+curl -s 'http://localhost:9090/api/v1/query?query=kafka_consumergroup_lag' | jq '.data.result | length'
+
+# Check consumer group lag using Kafka CLI
+docker exec -it kafka-45 bash -lc '
+  kafka-consumer-groups --bootstrap-server localhost:9092 \
+    --describe --group lag-monitor-group
+'
+```
+
+**Expected output should show:**
+- `LAG` column > 0
+- Metrics in kafka-exporter: `kafka_consumergroup_lag{consumergroup="lag-monitor-group", ...}`
+
+### Step 5: Verify in Grafana
+
+1. Open Grafana: `http://localhost:3000`
+2. Go to your Consumer Lag Dashboard
+3. Use query: `kafka_consumergroup_lag`
+4. You should see data points with labels:
+   - `consumergroup="lag-monitor-group"`
+   - `topic="lag-test"`
+   - `partition="0"`, `partition="1"`, `partition="2"`
+
+### Step 6: Create More Lag (Optional)
+
+To see lag increase over time:
+
+```bash
+# Produce more messages (consumer is stopped, so lag increases)
+for i in {301..500}; do
+  echo "message-$i" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+  sleep 0.1
+done
+
+# Check lag increased
+docker exec -it kafka-45 bash -lc '
+  kafka-consumer-groups --bootstrap-server localhost:9092 \
+    --describe --group lag-monitor-group | grep lag-test
+'
+```
+
+### Troubleshooting: No Data in Dashboard
+
+**If metrics still show "No data":**
+
+1. **Verify kafka-exporter is running:**
+   ```bash
+   docker compose ps kafka-exporter
+   curl http://localhost:9308/metrics | grep kafka_consumergroup
+   ```
+
+2. **Verify consumer group exists:**
+   ```bash
+   docker exec -it kafka-45 bash -lc '
+     kafka-consumer-groups --bootstrap-server localhost:9092 --list
+   '
+   ```
+
+3. **Verify consumer group has lag:**
+   ```bash
+   docker exec -it kafka-45 bash -lc '
+     kafka-consumer-groups --bootstrap-server localhost:9092 \
+       --describe --group lag-monitor-group
+   '
+   ```
+   Look for `LAG` column > 0
+
+4. **Check Prometheus is scraping:**
+   - Open `http://localhost:9090/targets`
+   - Verify `kafka-exporter` target is UP
+
+5. **Wait a few seconds:** kafka-exporter polls consumer groups periodically (default ~30s)
+
+6. **Verify query in Prometheus:**
+   ```bash
+   curl -s 'http://localhost:9090/api/v1/query?query=kafka_consumergroup_lag' | jq
+   ```
+
+### Quick Test Script
+
+Save this as `generate-lag.sh` and run it:
+
+```bash
+#!/bin/bash
+# Complete test script to generate consumer lag
+
+cd 45-grafana-dashboard
+
+echo "1. Creating topic..."
+docker exec -it kafka-45 bash -lc '
+  kafka-topics --bootstrap-server localhost:9092 \
+    --create --topic lag-test --partitions 3 --replication-factor 1 2>/dev/null || true
+'
+
+echo "2. Producing 50 messages..."
+for i in {1..50}; do
+  echo "msg-$i" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+done
+
+echo "3. Starting consumer (will consume some messages)..."
+docker exec -it kafka-45 bash -lc '
+  timeout 3 kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic lag-test \
+    --group lag-test-group \
+    --from-beginning 2>/dev/null || true
+'
+
+echo "4. Producing more messages (creates lag)..."
+for i in {51..100}; do
+  echo "msg-$i" | \
+  docker exec -i kafka-45 bash -lc \
+    "kafka-console-producer --bootstrap-server localhost:9092 --topic lag-test"
+done
+
+echo "5. Checking lag..."
+docker exec -it kafka-45 bash -lc '
+  kafka-consumer-groups --bootstrap-server localhost:9092 \
+    --describe --group lag-test-group
+'
+
+echo "6. Checking metrics..."
+sleep 5
+curl -s http://localhost:9308/metrics | grep "kafka_consumergroup_lag.*lag-test-group" | head -3
+
+echo ""
+echo "✅ Done! Check Grafana dashboard now."
+echo "Query: kafka_consumergroup_lag{consumergroup=\"lag-test-group\"}"
+```
+
+**To run:**
+```bash
+chmod +x generate-lag.sh
+./generate-lag.sh
+```
 

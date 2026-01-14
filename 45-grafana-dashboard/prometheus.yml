@@ -10,3 +10,10 @@ scrape_configs:
           service: 'kafka'
           exporter: 'jmx'
 
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+        labels:
+          service: 'kafka'
+          exporter: 'kafka-exporter'
+

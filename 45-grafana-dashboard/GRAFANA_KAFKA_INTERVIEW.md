@@ -3,7 +3,8 @@
 ## 1. Why Grafana is used with Kafka
 
 **Answer:**
-Grafana provides **visualization and alerting** for Kafka time-series metrics from Prometheus. It enables **visual correlation** across multiple metrics (e.g., throughput, lag, broker health) to identify root causes quickly. Without Grafana, teams rely on raw metrics or CLI tools, making it hard to spot trends, correlate incidents, or detect slow degradation. Grafana's dashboards turn metrics into **operational insight** - showing not just current values but historical patterns that reveal capacity issues before outages.
+Grafana provides **visualization and alerting** for Kafka time-series metrics from Prometheus. 
+It enables **visual correlation** across multiple metrics (e.g., throughput, lag, broker health) to identify root causes quickly. Without Grafana, teams rely on raw metrics or CLI tools, making it hard to spot trends, correlate incidents, or detect slow degradation. Grafana's dashboards turn metrics into **operational insight** - showing not just current values but historical patterns that reveal capacity issues before outages.
 
 ---
 
