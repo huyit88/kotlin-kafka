@@ -1,0 +1,30 @@
+groups:
+- name: kafka-alerts
+  rules:
+
+  - alert: KafkaConsumerLagIncreasing
+    expr: increase(kafka_consumergroup_lag[5m]) > 20
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Kafka consumer lag increasing"
+      description: "Consumer group '{{ $labels.consumergroup }}' is falling behind. Lag increased by {{ $value }} messages in the last 5 minutes. Topic: {{ $labels.topic }}, Partition: {{ $labels.partition }}. This indicates the consumer is processing slower than messages are being produced."
+
+  - alert: KafkaUnderReplicatedPartitions
+    expr: max(kafka_server_ReplicaManager_UnderReplicatedPartitions) > 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kafka under-replicated partitions detected"
+      description: "Kafka cluster has {{ $value }} under-replicated partition(s). Broker {{ $labels.broker }} reports this count. This indicates broker failures or replication issues. Data durability is at risk - if another broker fails, data may be lost. Immediate action required to investigate and restore replication."
+
+  - alert: KafkaNoActiveController
+    expr: sum(kafka_controller_KafkaController_ActiveControllerCount) != 1
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kafka cluster has incorrect controller count"
+      description: "Kafka cluster has {{ $value }} active controller(s). Expected exactly 1. If value is 0: No controller - cluster coordination is broken, cannot elect leaders or handle broker failures. If value > 1: Split-brain scenario - multiple controllers detected, extremely dangerous and can cause data corruption. Immediate action required to restore cluster coordination."

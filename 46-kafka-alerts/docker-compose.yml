@@ -1,0 +1,180 @@
+services:
+  zookeeper-46:
+    image: confluentinc/cp-zookeeper:7.5.0
+    user: "0:0"
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_DATA_DIR: /var/lib/zookeeper/data
+      ZOOKEEPER_DATA_LOG_DIR: /var/lib/zookeeper/log
+    volumes:
+      - zk_data:/var/lib/zookeeper/data
+      - zk_log:/var/lib/zookeeper/log
+
+  kafka-46-1:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper-46]
+    ports:
+      - "19092:19092"
+      - "9991:9999"
+    user: "0:0"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-46:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-46-1:9092,PLAINTEXT_HOST://localhost:19092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:19092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-46-1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+
+  kafka-46-2:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper-46]
+    ports:
+      - "29092:29092"
+      - "9992:9999"
+    user: "0:0"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-46:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-46-2:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-46-2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+
+  kafka-46-3:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper-46]
+    ports:
+      - "39092:39092"
+      - "9993:9999"
+    user: "0:0"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-46:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-46-3:9092,PLAINTEXT_HOST://localhost:39092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:39092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-46-3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
+
+
+  kafka-jmx-exporter-1:
+    image: bitnami/jmx-exporter:latest
+    depends_on: [kafka-46-1]
+    ports:
+      - "9404:9404"
+    volumes:
+      - ./jmx-kafka-1.yml:/etc/jmx-exporter/config.yml
+    command:
+      - "9404"
+      - "/etc/jmx-exporter/config.yml"
+
+  kafka-jmx-exporter-2:
+    image: bitnami/jmx-exporter:latest
+    depends_on: [kafka-46-2]
+    ports:
+      - "9405:9404"
+    volumes:
+      - ./jmx-kafka-2.yml:/etc/jmx-exporter/config.yml
+    command:
+      - "9404"
+      - "/etc/jmx-exporter/config.yml"
+
+  kafka-jmx-exporter-3:
+    image: bitnami/jmx-exporter:latest
+    depends_on: [kafka-46-3]
+    ports:
+      - "9406:9404"
+    volumes:
+      - ./jmx-kafka-3.yml:/etc/jmx-exporter/config.yml
+    command:
+      - "9404"
+      - "/etc/jmx-exporter/config.yml"
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    depends_on:
+      kafka-46-1:
+        condition: service_started
+      kafka-46-2:
+        condition: service_started
+      kafka-46-3:
+        condition: service_started
+    ports:
+      - "9308:9308"
+    environment:
+      - LOG_LEVEL=info
+    command:
+      - '--kafka.server=kafka-46-1:9092'
+      - '--kafka.server=kafka-46-2:9092'
+      - '--kafka.server=kafka-46-3:9092'
+      - '--web.listen-address=:9308'
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./kafka-alerts.yml:/etc/prometheus/kafka-alerts.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - kafka-jmx-exporter-1
+      - kafka-jmx-exporter-2
+      - kafka-jmx-exporter-3
+      - kafka-exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - kafka-46-1
+      - kafka-46-2
+      - kafka-46-3
+      - kafka-jmx-exporter-1
+      - kafka-jmx-exporter-2
+      - kafka-jmx-exporter-3
+      - kafka-exporter
+      - prometheus
+
+volumes:
+  zk_data:
+  zk_log:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
